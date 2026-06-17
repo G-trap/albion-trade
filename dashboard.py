@@ -134,21 +134,26 @@ h1, h2, h3, h4 { font-family: 'Cinzel', serif !important; color: var(--gold-ligh
 
 /* Banniere d'en-tete */
 .albion-header {
-  position: relative; border: 1px solid rgba(201,162,39,.45); border-radius: 12px;
-  padding: 20px 28px; margin: 4px 0 16px 0;
+  position: relative; display:flex; align-items:center; gap:24px;
+  border: 1px solid rgba(201,162,39,.45); border-radius: 12px;
+  padding: 20px 30px; margin: 4px 0 16px 0;
   background:
-    radial-gradient(600px 120px at 50% 0%, rgba(201,162,39,.10), transparent 70%),
-    linear-gradient(135deg, rgba(40,31,21,.95), rgba(20,16,11,.95));
+    radial-gradient(700px 140px at 50% 0%, rgba(201,162,39,.12), transparent 70%),
+    repeating-linear-gradient(135deg, rgba(201,162,39,.035) 0 2px, transparent 2px 9px),
+    linear-gradient(135deg, rgba(40,31,21,.96), rgba(19,15,10,.96));
   box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 0 0 1px rgba(201,162,39,.18),
-              inset 0 0 40px rgba(201,162,39,.07);
+              inset 0 0 44px rgba(201,162,39,.07);
 }
 .albion-header::before, .albion-header::after {
   content: "❖"; position: absolute; top: 10px; color: rgba(201,162,39,.55); font-size: .9rem;
 }
 .albion-header::before { left: 12px; }
 .albion-header::after { right: 12px; }
-.albion-header .title { font-family:'Cinzel',serif; font-size:2.2rem; font-weight:700;
-  color: var(--gold-light); margin:0; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.albion-emblem { flex:0 0 auto; line-height:0;
+  filter: drop-shadow(0 3px 7px rgba(0,0,0,.55)); }
+.albion-htext { flex:1 1 auto; }
+.albion-header .title { font-family:'Cinzel',serif; font-size:2.3rem; font-weight:700;
+  color: var(--gold-light); margin:0; letter-spacing:2px; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
 .albion-header .subtitle { color:#bcae90; font-size:1rem; margin-top:6px; }
 .albion-header .rule { height:2px; margin-top:12px; border-radius:2px;
   background: linear-gradient(90deg, transparent, var(--gold), transparent); }
@@ -218,15 +223,45 @@ hr { border-color: rgba(201,162,39,.25) !important; }
 """
 
 
+# Embleme heraldique (ecu + epees croisees + piece d'or), SVG inline = sans dependance.
+EMBLEM_SVG = """
+<svg width="84" height="92" viewBox="0 0 84 92" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ecu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c2118"/><stop offset="1" stop-color="#140f08"/>
+    </linearGradient>
+    <linearGradient id="or" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9d089"/><stop offset="1" stop-color="#a9851d"/>
+    </linearGradient>
+  </defs>
+  <path d="M42 5 L77 14 V42 C77 64 59 80 42 87 C25 80 7 64 7 42 V14 Z"
+        fill="url(#ecu)" stroke="url(#or)" stroke-width="3.5"/>
+  <path d="M42 11 L72 18 V42 C72 60 57 74 42 81 C27 74 12 60 12 42 V18 Z"
+        fill="none" stroke="rgba(233,208,137,.35)" stroke-width="1.2"/>
+  <g stroke="#dcd0b4" stroke-width="3.2" stroke-linecap="round">
+    <line x1="26" y1="30" x2="58" y2="66"/><line x1="58" y1="30" x2="26" y2="66"/>
+  </g>
+  <g stroke="url(#or)" stroke-width="4.5" stroke-linecap="round">
+    <line x1="20" y1="34" x2="32" y2="25"/><line x1="52" y1="25" x2="64" y2="34"/>
+  </g>
+  <circle cx="42" cy="50" r="9" fill="url(#or)" stroke="#7a611a" stroke-width="1.6"/>
+  <circle cx="42" cy="50" r="5" fill="none" stroke="rgba(122,97,26,.7)" stroke-width="1.1"/>
+</svg>
+"""
+
+
 def inject_theme():
     st.markdown(ALBION_CSS, unsafe_allow_html=True)
     st.markdown(
         '<div class="albion-header">'
-        '<div class="title">⚔️ Albion Trade</div>'
+        '<div class="albion-emblem">' + EMBLEM_SVG + '</div>'
+        '<div class="albion-htext">'
+        '<div class="title">⚔️ ALBION TRADE</div>'
         '<div class="subtitle">Transport &amp; Craft — serveur EUROPE · '
         'donnees Albion Online Data Project (les prix peuvent etre perimes : '
         'surveille l\'age et garde le garde-fou anti-outlier actif).</div>'
         '<div class="rule"></div>'
+        '</div>'
         '</div>',
         unsafe_allow_html=True,
     )
