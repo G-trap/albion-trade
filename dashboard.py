@@ -84,6 +84,97 @@ def icon_col_config(label="Icone"):
 
 
 # --------------------------------------------------------------------------- #
+# THEME ALBION (or sur fond sombre)
+# --------------------------------------------------------------------------- #
+
+ALBION_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:ital@0;1&display=swap');
+
+:root {
+  --gold: #c9a227; --gold-light: #e3c869; --panel: #241c14; --parch: #ece3d0;
+}
+
+.stApp {
+  background:
+    radial-gradient(1100px 500px at 50% -8%, rgba(201,162,39,0.10), transparent 60%),
+    linear-gradient(180deg, #15110c 0%, #100d09 100%);
+}
+[data-testid="stHeader"] { background: transparent; }
+
+h1, h2, h3, h4 { font-family: 'Cinzel', serif !important; color: var(--gold-light) !important;
+                 letter-spacing: .4px; }
+.stApp, p, label, span, div, li { font-family: 'EB Garamond', Georgia, serif; }
+
+/* Banniere d'en-tete */
+.albion-header {
+  border: 1px solid rgba(201,162,39,.45); border-radius: 12px; padding: 18px 26px;
+  margin: 4px 0 14px 0;
+  background: linear-gradient(135deg, rgba(36,28,20,.92), rgba(21,17,12,.92));
+  box-shadow: 0 6px 22px rgba(0,0,0,.55), inset 0 0 34px rgba(201,162,39,.06);
+}
+.albion-header .title { font-family:'Cinzel',serif; font-size:2.1rem; font-weight:700;
+  color: var(--gold-light); margin:0; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.albion-header .subtitle { color:#bcae90; font-size:1rem; margin-top:6px; }
+.albion-header .rule { height:2px; margin-top:12px; border-radius:2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+/* Metrics en cartes ornees */
+[data-testid="stMetric"] {
+  background: linear-gradient(180deg, rgba(36,28,20,.85), rgba(26,20,14,.85));
+  border: 1px solid rgba(201,162,39,.35); border-radius: 10px; padding: 12px 16px;
+  box-shadow: inset 0 0 18px rgba(201,162,39,.05);
+}
+[data-testid="stMetricValue"] { color: var(--gold-light) !important; font-family:'Cinzel',serif; }
+[data-testid="stMetricLabel"] { color:#cbbd9b !important; }
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #1b150e, #131009);
+  border-right: 1px solid rgba(201,162,39,.30);
+}
+
+/* Onglets */
+.stTabs [data-baseweb="tab-list"] { gap:6px; border-bottom:1px solid rgba(201,162,39,.25); }
+.stTabs [data-baseweb="tab"] { background: rgba(36,28,20,.6);
+  border:1px solid rgba(201,162,39,.25); border-bottom:none; border-radius:8px 8px 0 0;
+  color:#cbbd9b; font-family:'Cinzel',serif; padding:8px 18px; }
+.stTabs [aria-selected="true"] { background: rgba(201,162,39,.18);
+  color: var(--gold-light) !important; border-color: rgba(201,162,39,.55); }
+
+/* Boutons */
+.stButton > button, .stDownloadButton > button {
+  background: linear-gradient(180deg, #caa42b, #9c7d1e); color:#1a1409 !important;
+  border:1px solid #e3c869; font-weight:700; border-radius:8px;
+  font-family:'Cinzel',serif; letter-spacing:.3px;
+}
+.stButton > button:hover, .stDownloadButton > button:hover { filter:brightness(1.1); }
+
+/* Cadres : dataframes, expanders, alertes */
+[data-testid="stDataFrame"], [data-testid="stExpander"] {
+  border:1px solid rgba(201,162,39,.28); border-radius:10px;
+}
+[data-testid="stExpander"] summary { color: var(--gold-light); font-family:'Cinzel',serif; }
+hr { border-color: rgba(201,162,39,.25) !important; }
+</style>
+"""
+
+
+def inject_theme():
+    st.markdown(ALBION_CSS, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="albion-header">'
+        '<div class="title">⚔️ Albion Trade</div>'
+        '<div class="subtitle">Transport &amp; Craft — serveur EUROPE · '
+        'donnees Albion Online Data Project (les prix peuvent etre perimes : '
+        'surveille l\'age et garde le garde-fou anti-outlier actif).</div>'
+        '<div class="rule"></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# --------------------------------------------------------------------------- #
 # ONGLET TRANSPORT
 # --------------------------------------------------------------------------- #
 
@@ -385,10 +476,8 @@ def render_craft(p, meta):
 # PAGE + SIDEBAR
 # --------------------------------------------------------------------------- #
 
-st.set_page_config(page_title="Albion Trade", page_icon="💰", layout="wide")
-st.title("💰 Albion Trade — Transport & Craft (EUROPE)")
-st.caption("Donnees crowdsourcees (Albion Online Data Project). Les prix peuvent etre "
-           "perimes : surveille l'age et garde le garde-fou anti-outlier actif.")
+st.set_page_config(page_title="Albion Trade", page_icon="⚔️", layout="wide")
+inject_theme()
 
 with st.sidebar:
     st.header("Parametres communs")

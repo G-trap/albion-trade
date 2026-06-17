@@ -1,0 +1,8 @@
+# Theme Albion : or sur fond sombre (parchemin / cuir / doré)
+[theme]
+base = "dark"
+primaryColor = "#c9a227"
+backgroundColor = "#15110c"
+secondaryBackgroundColor = "#241c14"
+textColor = "#ece3d0"
+font = "serif"
