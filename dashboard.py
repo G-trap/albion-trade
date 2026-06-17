@@ -18,10 +18,16 @@ Dependances :
 """
 
 from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import streamlit as st
-import plotly.graph_objects as go
+
+try:
+    from zoneinfo import ZoneInfo
+    _PARIS = ZoneInfo("Europe/Paris")
+except Exception:  # tzdata absent (Windows) -> on retombe sur le fuseau local systeme
+    _PARIS = None
 
 import albion_arbitrage as aa
 import albion_craft as ac
@@ -135,6 +141,7 @@ MOUNTS = {
     "Cheval de selle (rapide, peu de charge)": {"speed": 0.55, "capacity": 500},
     "Cheval / Direwolf (equilibre)":           {"speed": 0.75, "capacity": 700},
     "Boeuf de transport T5 (reference)":        {"speed": 1.00, "capacity": 1800},
+    "Boeuf de transport T7":                    {"speed": 1.05, "capacity": 2300},
     "Boeuf de transport T8":                    {"speed": 1.10, "capacity": 2700},
     "Mammouth de transport T8 (lent, max)":     {"speed": 1.50, "capacity": 5000},
     "Personnalise":                             None,
@@ -437,32 +444,6 @@ def opp_card(col, o, series):
         unsafe_allow_html=True)
 
 
-def _plotly_layout(fig, height=180):
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      font_color="#9a8d70", margin=dict(l=0, r=0, t=0, b=0), height=height)
-    return fig
-
-
-def margin_donut(opps):
-    hi = sum(1 for o in opps if o["margin_pct"] >= 40)
-    mid = sum(1 for o in opps if 20 <= o["margin_pct"] < 40)
-    lo = sum(1 for o in opps if o["margin_pct"] < 20)
-    fig = go.Figure(go.Pie(labels=["≥ 40 %", "20–40 %", "< 20 %"], values=[hi, mid, lo],
-                           hole=.62, sort=False, textinfo="none",
-                           marker=dict(colors=["#c9a227", "#d98c3a", "#b5483f"],
-                                       line=dict(color="#15110c", width=2))))
-    fig.update_layout(showlegend=True, legend=dict(font=dict(color="#cbbd9b", size=11)))
-    return _plotly_layout(fig, 180)
-
-
-def profit_hist(opps):
-    fig = go.Figure(go.Histogram(x=[o["profit"] for o in opps], nbinsx=16,
-                                 marker=dict(color="#c9a227", line=dict(color="#7a611a", width=.5))))
-    fig.update_layout(xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, visible=False),
-                      bargap=.08)
-    return _plotly_layout(fig, 180)
-
-
 def render_transport(p, meta):
     cities, items = p["cities"], p["items"]
     try:
@@ -504,15 +485,19 @@ def render_transport(p, meta):
     # --- 5 cartes de statistiques ---
     top = opps[0]
     ages = [max(o["buy_age_h"], o["sell_age_h"]) for o in opps]
-    fa = min(ages)
-    fresh = f"{fa*60:.0f} min" if fa < 1 else f"{fa:.1f} h"
+    fa = min(ages)  # age du prix le plus recent (heures)
+    upd = (datetime.now(timezone.utc) - timedelta(hours=fa))
+    upd_local = upd.astimezone(_PARIS) if _PARIS else upd.astimezone()
+    same_day = upd_local.date() == datetime.now().astimezone().date()
+    upd_txt = upd_local.strftime("%Hh%M" if same_day else "%d/%m %Hh%M")
+    rel_txt = f"il y a {fa*60:.0f} min" if fa < 1 else f"il y a {fa:.1f} h"
     avg_marge = sum(o["margin_pct"] for o in opps) / len(opps)
     s1, s2, s3, s4, s5 = st.columns(5)
     stat_card(s1, "💰", "Profit potentiel max", f'{top["profit"]:,} 🪙', top["item"])
     stat_card(s2, "🎯", "Opportunites rentables", f"{len(opps)}", f"Sur {len(rows):,} lignes")
     stat_card(s3, "🚚", "Meilleure route", f'{top["buy_city"]} → {top["sell_city"]}',
               f'Marge {top["margin_pct"]:.1f} %')
-    stat_card(s4, "🛡️", "Donnees fraiches", fresh, "Age min des prix")
+    stat_card(s4, "🕓", "Prix mis a jour", upd_txt, rel_txt)
     stat_card(s5, "📈", "Marge moyenne", f"{avg_marge:.1f} %", "Sur les opportunites")
 
     # --- TOP OPPORTUNITES (cartes) ---
@@ -520,22 +505,11 @@ def render_transport(p, meta):
     for col, o in zip(st.columns(5), opps[:5]):
         opp_card(col, o, series)
 
-    # --- Graphiques ---
-    section_title("Analyse", "📊")
-    g1, g2, g3 = st.columns([1.1, 1.3, 1.1])
-    with g1:
+    # --- Meilleures routes ---
+    section_title("Meilleures routes", "🧭")
+    rcol, _ = st.columns([1.4, 1])
+    with rcol:
         with st.container(border=True):
-            st.markdown('<div class="p-title">Repartition des marges</div>', unsafe_allow_html=True)
-            st.plotly_chart(margin_donut(opps), use_container_width=True,
-                            config={"displayModeBar": False})
-    with g2:
-        with st.container(border=True):
-            st.markdown('<div class="p-title">Distribution des profits</div>', unsafe_allow_html=True)
-            st.plotly_chart(profit_hist(opps), use_container_width=True,
-                            config={"displayModeBar": False})
-    with g3:
-        with st.container(border=True):
-            st.markdown('<div class="p-title">Meilleures routes</div>', unsafe_allow_html=True)
             routes = defaultdict(lambda: [0, 0])
             for o in opps:
                 k = (o["buy_city"], o["sell_city"])
@@ -545,7 +519,7 @@ def render_transport(p, meta):
             html = ""
             for i, ((b, s), (cnt, _)) in enumerate(top_routes, 1):
                 html += (f'<div class="route-row"><span class="rank">{i}</span>'
-                         f'{city_dot(b)} → {city_dot(s)}<span class="cnt">{cnt}</span></div>')
+                         f'{city_dot(b)} → {city_dot(s)}<span class="cnt">{cnt} items</span></div>')
             st.markdown(html, unsafe_allow_html=True)
 
     # --- Tableau complet ---
