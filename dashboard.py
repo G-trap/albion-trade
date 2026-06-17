@@ -855,7 +855,12 @@ def render_craft(p, meta):
     body = ""
     for o in opps:
         icon = ai.icon_url(o["item"]) + "?quality=1"
-        pf = fmt_int(o["_pf"]) if o["_pf"] is not None else "—"
+        if o["_pf"] is None:
+            pf = "—"
+        elif o["_pf"] >= 10:
+            pf = fmt_int(o["_pf"])
+        else:
+            pf = f'{o["_pf"]:.1f}'
         body += (
             "<tr>"
             f'<td>{_fresh_dot(o["_age"])}</td>'
@@ -881,7 +886,7 @@ def render_craft(p, meta):
         "Achat @": o["buy_city"], "Achat": o["buy_strategy"], "Cout total": o["total_cost"],
         "Vente @": o["sell_city"], "Vente": o["strategy"], "Prix vente": o["sell_price"],
         "Profit/u": o["profit"],
-        "Profit/focus": round(o["_pf"]) if o["_pf"] is not None else "",
+        "Profit/focus": round(o["_pf"], 2) if o["_pf"] is not None else "",
         "Marge %": o["margin_pct"],
         "Age max (h)": round(o["_age"], 1) if o["_age"] is not None else "",
     } for o in opps])
