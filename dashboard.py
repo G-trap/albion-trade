@@ -327,9 +327,10 @@ hr { border-color: rgba(201,162,39,.25) !important; }
   box-shadow: 0 4px 14px rgba(0,0,0,.4); }
 .opp-card .oc-head { display:flex; align-items:center; gap:10px; }
 .opp-card .oc-img { width:38px; height:38px; border-radius:7px;
-  border:1px solid rgba(201,162,39,.4); background:#0e0b07; }
+  border:1px solid rgba(201,162,39,.4); background:#0e0b07; flex:0 0 auto; }
+.opp-card .oc-namewrap { min-width:0; }
 .opp-card .oc-name { font-family:'Cinzel',serif; color: var(--gold-light); font-weight:600;
-  font-size:.95rem; }
+  font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .opp-card .oc-route { color:#b8ab8d; font-size:.8rem; margin-top:1px; }
 .opp-card .oc-spark { margin:10px 0 8px; }
 .opp-card .oc-nospark { color:#6f6450; font-size:.75rem; text-align:center; padding:8px 0; }
@@ -369,6 +370,7 @@ hr { border-color: rgba(201,162,39,.25) !important; }
   text-transform:uppercase; letter-spacing:.5px; text-align:left; padding:10px 12px;
   border-bottom:1px solid rgba(201,162,39,.3); white-space:nowrap; }
 .craft-tbl th.num, .craft-tbl td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.craft-tbl td.rank-col { color:#8c8068; font-family:'Cinzel',serif; width:28px; }
 .craft-tbl td { padding:9px 12px; border-bottom:1px solid rgba(201,162,39,.10);
   vertical-align:middle; }
 .craft-tbl tbody tr:hover { background: rgba(201,162,39,.09); }
@@ -473,14 +475,15 @@ def opp_card(col, o, series):
     spark = sparkline_svg(series.get(o["item"], []))
     age = max(o["buy_age_h"], o["sell_age_h"])
     tier = score_tier(o["score"])
+    name = o.get("_name", o["item"])
     col.markdown(
         f'<div class="opp-card"><div class="oc-head">'
         f'<img class="oc-img" src="{ai.icon_url(o["item"])}"/>'
-        f'<div><div class="oc-name">{o["item"]}</div>'
+        f'<div class="oc-namewrap"><div class="oc-name" title="{name} ({o["item"]})">{name}</div>'
         f'<div class="oc-route">{city_dot(o["buy_city"])} → {city_dot(o["sell_city"])}</div>'
         f'</div></div><div class="oc-spark">{spark}</div>'
         f'<div class="oc-stats">'
-        f'<div><span class="oc-k">Profit/u</span><span class="oc-v">{o["profit"]:,} 🪙</span></div>'
+        f'<div><span class="oc-k">Profit/u</span><span class="oc-v">{fmt_int(o["profit"])} 🪙</span></div>'
         f'<div><span class="oc-k">Marge</span><span class="oc-v">{o["margin_pct"]:.0f}%</span></div>'
         f'<div><span class="oc-k">Âge</span><span class="oc-v">{age:.0f}h</span></div></div>'
         f'<div class="oc-score"><span>Score</span>'
@@ -526,10 +529,16 @@ def render_transport(p, meta):
                 "minimum, augmente la fraicheur, ou change la liste d'items.")
         return
 
+    # Enrichissement : nom FR, age max, rang.
+    names = load_item_names()
+    for i, o in enumerate(opps, 1):
+        o["_name"] = ai.get_name(o["item"], names)
+        o["_age"] = max(o["buy_age_h"], o["sell_age_h"])
+        o["_rank"] = i
+
     # --- 5 cartes de statistiques ---
     top = opps[0]
-    ages = [max(o["buy_age_h"], o["sell_age_h"]) for o in opps]
-    fa = min(ages)  # age du prix le plus recent (heures)
+    fa = min(o["_age"] for o in opps)  # age du prix le plus recent (heures)
     upd = (datetime.now(timezone.utc) - timedelta(hours=fa))
     upd_local = upd.astimezone(_PARIS) if _PARIS else upd.astimezone()
     same_day = upd_local.date() == datetime.now().astimezone().date()
@@ -537,7 +546,7 @@ def render_transport(p, meta):
     rel_txt = f"il y a {fa*60:.0f} min" if fa < 1 else f"il y a {fa:.1f} h"
     avg_marge = sum(o["margin_pct"] for o in opps) / len(opps)
     s1, s2, s3, s4, s5 = st.columns(5)
-    stat_card(s1, "💰", "Profit potentiel max", f'{top["profit"]:,} 🪙', top["item"])
+    stat_card(s1, "💰", "Profit potentiel max", f'{fmt_int(top["profit"])} 🪙', top["_name"])
     stat_card(s2, "🎯", "Opportunites rentables", f"{len(opps)}", f"Sur {len(rows):,} lignes")
     stat_card(s3, "🚚", "Meilleure route", f'{top["buy_city"]} → {top["sell_city"]}',
               f'Marge {top["margin_pct"]:.1f} %')
@@ -566,51 +575,56 @@ def render_transport(p, meta):
                          f'{city_dot(b)} → {city_dot(s)}<span class="cnt">{cnt} items</span></div>')
             st.markdown(html, unsafe_allow_html=True)
 
-    # --- Tableau complet ---
+    # --- Tableau complet (HTML thematique) ---
     section_title("Toutes les opportunites", "📜")
-    query = st.text_input("Rechercher un item", "", placeholder="🔎 ex : T6_CLOTH",
+    query = st.text_input("Rechercher un item", "", placeholder="🔎 nom FR ou ID (ex : cuir, T6_CLOTH)",
                           label_visibility="collapsed")
-    shown = [o for o in opps if query.strip().lower() in o["item"].lower()] if query else opps
+    q = query.strip().lower()
+    shown = [o for o in opps if not q or q in o["_name"].lower() or q in o["item"].lower()]
 
-    df = pd.DataFrame(shown)
-    df["age_max_h"] = df[["buy_age_h", "sell_age_h"]].max(axis=1)
-    df.insert(0, "#", range(1, len(df) + 1))
-    df["icon"] = df["item"].map(ai.icon_url)
-    df["buy_city"] = df["buy_city"].map(city_badge)
-    df["sell_city"] = df["sell_city"].map(city_badge)
-    df["buy_strategy"] = df["buy_strategy"].map(strat_badge)
-    df["strategy"] = df["strategy"].map(strat_badge)
-    df = df.rename(columns={
-        "icon": "Icone", "item": "Item", "buy_city": "Achat @", "buy_price": "Prix achat",
-        "buy_strategy": "Achat", "sell_city": "Vente @", "sell_price": "Prix vente",
-        "strategy": "Vente", "profit": "Profit/u", "margin_pct": "Marge %",
-        "age_max_h": "Age max (h)", "score": "Score",
-    })
-    df = df[["#", "Icone", "Item", "Achat @", "Prix achat", "Achat", "Vente @",
-             "Prix vente", "Vente", "Profit/u", "Marge %", "Age max (h)", "Score"]]
-    marge_max = max(float(df["Marge %"].max()), 1.0)
-    st.dataframe(
-        df, use_container_width=True, hide_index=True,
-        column_config={
-            "#": st.column_config.NumberColumn(width="small"),
-            "Icone": icon_col_config(),
-            "Prix achat": st.column_config.NumberColumn(format="%d"),
-            "Prix vente": st.column_config.NumberColumn(format="%d"),
-            "Profit/u": st.column_config.NumberColumn(format="%d"),
-            "Marge %": st.column_config.ProgressColumn(
-                "Marge %", format="%.1f %%", min_value=0, max_value=marge_max),
-            "Age max (h)": st.column_config.NumberColumn(format="%.1f"),
-            "Score": st.column_config.NumberColumn(format="%d", help="0-100 : profit, marge, fraicheur."),
-        },
-    )
+    mmax = max((o["margin_pct"] for o in shown), default=1.0)
+    headers = [("", False), ("#", False), ("Item", False), ("Achat", False),
+               ("Prix achat", True), ("Vente", False), ("Prix vente", True),
+               ("Profit/u", True), ("Marge", False), ("Score", False)]
+    th = "".join(f'<th class="num">{h}</th>' if num else f"<th>{h}</th>" for h, num in headers)
+    body = ""
+    for o in shown:
+        icon = ai.icon_url(o["item"]) + "?quality=1"
+        tier = score_tier(o["score"])
+        body += (
+            "<tr>"
+            f'<td>{_fresh_dot(o["_age"])}</td>'
+            f'<td class="rank-col">{o["_rank"]}</td>'
+            f'<td><div class="it-cell"><img src="{icon}"/><div>'
+            f'<div class="it-nm">{o["_name"]}</div>'
+            f'<div class="it-id">{o["item"]}</div></div></div></td>'
+            f'<td>{_city_cell(o["buy_city"], o["buy_strategy"])}</td>'
+            f'<td class="num">{fmt_int(o["buy_price"])}</td>'
+            f'<td>{_city_cell(o["sell_city"], o["strategy"])}</td>'
+            f'<td class="num">{fmt_int(o["sell_price"])}</td>'
+            f'<td class="num">{fmt_int(o["profit"])}</td>'
+            f'<td>{_marge_bar(o["margin_pct"], mmax)}</td>'
+            f'<td><span class="score-badge {tier}">{o["score"]}</span></td>'
+            "</tr>")
+    st.markdown(
+        f'<div class="craft-wrap"><table class="craft-tbl"><thead><tr>{th}</tr></thead>'
+        f"<tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
+
+    csv_df = pd.DataFrame([{
+        "#": o["_rank"], "Item": o["_name"], "ID": o["item"],
+        "Achat @": o["buy_city"], "Achat": o["buy_strategy"], "Prix achat": o["buy_price"],
+        "Vente @": o["sell_city"], "Vente": o["strategy"], "Prix vente": o["sell_price"],
+        "Profit/u": o["profit"], "Marge %": o["margin_pct"],
+        "Age max (h)": round(o["_age"], 1), "Score": o["score"],
+    } for o in shown])
     st.download_button(
-        "⬇️ Exporter en CSV", data=df.drop(columns="Icone").to_csv(index=False).encode("utf-8"),
-        file_name="albion_transport.csv", mime="text/csv",
-    )
+        "⬇️ Exporter en CSV", data=csv_df.to_csv(index=False).encode("utf-8"),
+        file_name="albion_transport.csv", mime="text/csv")
+
     st.caption(
-        "**Achat / Vente** : ⚡ instant (immediat) ou 📜 ordre (poste, plus lent). "
-        "**Score** = profit (50%) + marge (35%) + fraicheur (15%). "
-        "AGE = anciennete max de la donnee utilisee."
+        "🟢 < 6 h · 🟠 6–12 h · 🔴 > 12 h (survole le voyant pour l'age exact). "
+        "Achat / Vente : ⚡ instant ou 📜 ordre. "
+        "Score = profit (50 %) + marge (35 %) + fraicheur (15 %)."
     )
 
     render_safe_routes(opps, p, meta)
