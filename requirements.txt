@@ -1,0 +1,7 @@
+# Le scanner actuel tourne avec la stdlib seule (urllib + gzip).
+# requests est optionnel mais pratique si tu refactores les appels HTTP.
+requests>=2.31
+
+# Dashboard web (dashboard.py) :
+streamlit>=1.33
+pandas>=2.2

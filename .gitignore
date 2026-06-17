@@ -1,0 +1,19 @@
+# Caches Python
+__pycache__/
+*.pyc
+
+# Donnees derivees / regenerees au runtime (ne pas versionner)
+item_meta.json
+item_weights.json
+items_dump.json
+
+# Logs et exports
+streamlit.log
+*.csv
+
+# Secrets Streamlit (ne jamais commiter)
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
