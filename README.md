@@ -6,9 +6,9 @@ l'[Albion Online Data Project](https://www.albion-online-data.com/) (crowdsourci
 
 ## Dashboard en ligne
 
-> ⚠️ Remplace ce lien par celui de ton déploiement Streamlit Cloud.
+**[→ Ouvrir le dashboard ⚔️](https://silver-albion.streamlit.app/)**
 
-**[→ Ouvrir le dashboard](https://share.streamlit.io/)**
+[![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://silver-albion.streamlit.app/)
 
 Deux onglets :
 - **🚚 Transport** : arbitrage entre villes + itinéraires sûrs (sans zone rouge/noire),
