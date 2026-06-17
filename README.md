@@ -1,4 +1,4 @@
-# Albion Trade — Scanner d'arbitrage & craft (serveur EUROPE)
+# Marché d'Albion — Scanner d'arbitrage & craft (serveur EUROPE)
 
 Outil de trading pour **Albion Online** : repère les opportunités d'achat-revente entre
 villes (city flipping) et la rentabilité du craft, à partir des prix de marché de

@@ -223,7 +223,8 @@ hr { border-color: rgba(201,162,39,.25) !important; }
 """
 
 
-# Embleme heraldique (ecu + epees croisees + piece d'or), SVG inline = sans dependance.
+# Embleme heraldique (ecu + epees croisees discretes + balance de marchand doree),
+# SVG inline = sans dependance externe.
 EMBLEM_SVG = """
 <svg width="84" height="92" viewBox="0 0 84 92" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -238,14 +239,20 @@ EMBLEM_SVG = """
         fill="url(#ecu)" stroke="url(#or)" stroke-width="3.5"/>
   <path d="M42 11 L72 18 V42 C72 60 57 74 42 81 C27 74 12 60 12 42 V18 Z"
         fill="none" stroke="rgba(233,208,137,.35)" stroke-width="1.2"/>
-  <g stroke="#dcd0b4" stroke-width="3.2" stroke-linecap="round">
-    <line x1="26" y1="30" x2="58" y2="66"/><line x1="58" y1="30" x2="26" y2="66"/>
+  <!-- epees croisees, en retrait -->
+  <g stroke="#b8ad95" stroke-width="2.4" stroke-linecap="round" opacity="0.55">
+    <line x1="27" y1="30" x2="57" y2="64"/><line x1="57" y1="30" x2="27" y2="64"/>
   </g>
-  <g stroke="url(#or)" stroke-width="4.5" stroke-linecap="round">
-    <line x1="20" y1="34" x2="32" y2="25"/><line x1="52" y1="25" x2="64" y2="34"/>
+  <!-- balance de marchand (or), embleme central -->
+  <g stroke="url(#or)" stroke-width="2.4" stroke-linecap="round" fill="none">
+    <line x1="42" y1="37" x2="42" y2="65"/>
+    <line x1="34" y1="66" x2="50" y2="66"/>
+    <line x1="27" y1="42" x2="57" y2="42"/>
+    <line x1="27" y1="42" x2="22" y2="50"/><line x1="27" y1="42" x2="32" y2="50"/>
+    <line x1="57" y1="42" x2="52" y2="50"/><line x1="57" y1="42" x2="62" y2="50"/>
+    <path d="M21 50 Q27 57.5 33 50"/><path d="M51 50 Q57 57.5 63 50"/>
   </g>
-  <circle cx="42" cy="50" r="9" fill="url(#or)" stroke="#7a611a" stroke-width="1.6"/>
-  <circle cx="42" cy="50" r="5" fill="none" stroke="rgba(122,97,26,.7)" stroke-width="1.1"/>
+  <circle cx="42" cy="36" r="2.7" fill="url(#or)" stroke="#7a611a" stroke-width="1"/>
 </svg>
 """
 
@@ -256,7 +263,7 @@ def inject_theme():
         '<div class="albion-header">'
         '<div class="albion-emblem">' + EMBLEM_SVG + '</div>'
         '<div class="albion-htext">'
-        '<div class="title">⚔️ ALBION TRADE</div>'
+        '<div class="title">⚖️ MARCHÉ D\'ALBION</div>'
         '<div class="subtitle">Transport &amp; Craft — serveur EUROPE · '
         'donnees Albion Online Data Project (les prix peuvent etre perimes : '
         'surveille l\'age et garde le garde-fou anti-outlier actif).</div>'
@@ -585,7 +592,7 @@ def render_craft(p, meta):
 # PAGE + SIDEBAR
 # --------------------------------------------------------------------------- #
 
-st.set_page_config(page_title="Albion Trade", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="Marché d'Albion", page_icon="⚖️", layout="wide")
 inject_theme()
 
 with st.sidebar:
@@ -677,7 +684,7 @@ with tab_craft:
     render_craft(params, meta)
 
 st.markdown(
-    '<div class="albion-footer"><span class="gem">⚜️</span> Albion Trade · '
-    'donnees Albion Online Data Project · serveur EUROPE <span class="gem">⚜️</span></div>',
+    '<div class="albion-footer"><span class="gem">⚜️</span> Marché d\'Albion · '
+    'données Albion Online Data Project · serveur EUROPE <span class="gem">⚜️</span></div>',
     unsafe_allow_html=True,
 )
