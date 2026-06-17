@@ -5,7 +5,9 @@ __pycache__/
 # Donnees derivees / regenerees au runtime (ne pas versionner)
 item_meta.json
 item_weights.json
+item_names.json
 items_dump.json
+names_dump.json
 
 # Logs et exports
 streamlit.log

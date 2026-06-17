@@ -177,6 +177,12 @@ def load_meta():
     return ai.load_meta()
 
 
+@st.cache_data(ttl=86400, show_spinner="Chargement des noms FR (ao-bin-dumps)...")
+def load_item_names():
+    """Noms francais des items (cache disque + cache Streamlit 24h)."""
+    return ai.load_names()
+
+
 def icon_col_config(label="Icone"):
     return st.column_config.ImageColumn(label, width="small")
 
@@ -354,6 +360,44 @@ hr { border-color: rgba(201,162,39,.25) !important; }
   border-bottom:1px solid rgba(201,162,39,.12); font-size:.9rem; color:#d8ccaf; }
 .route-row .rank { font-family:'Cinzel',serif; color: var(--gold); width:18px; }
 .route-row .cnt { margin-left:auto; color:#9a8d70; }
+
+/* Tableau craft HTML */
+.craft-wrap { overflow-x:auto; border:1px solid rgba(201,162,39,.25); border-radius:12px;
+  background: linear-gradient(180deg, rgba(30,23,15,.6), rgba(18,14,9,.6)); }
+.craft-tbl { width:100%; border-collapse:collapse; font-size:.9rem; color:#e3dcc9; }
+.craft-tbl th { font-family:'Cinzel',serif; color:#cbbd9b; font-size:.72rem; font-weight:600;
+  text-transform:uppercase; letter-spacing:.5px; text-align:left; padding:10px 12px;
+  border-bottom:1px solid rgba(201,162,39,.3); white-space:nowrap; }
+.craft-tbl th.num, .craft-tbl td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.craft-tbl td { padding:9px 12px; border-bottom:1px solid rgba(201,162,39,.10);
+  vertical-align:middle; }
+.craft-tbl tbody tr:hover { background: rgba(201,162,39,.09); }
+.craft-tbl tbody tr:last-child td { border-bottom:none; }
+/* voyant de fraicheur */
+.frdot { display:inline-block; width:11px; height:11px; border-radius:50%;
+  box-shadow:0 0 6px currentColor; }
+.frdot.fr-green { color:#5fd07a; background:#5fd07a; }
+.frdot.fr-amber { color:#e0a52e; background:#e0a52e; }
+.frdot.fr-red   { color:#d9605a; background:#d9605a; }
+/* item icone + nom */
+.it-cell { display:flex; align-items:center; gap:10px; }
+.it-cell img { width:34px; height:34px; border-radius:6px; background:#0e0b07;
+  border:1px solid rgba(201,162,39,.35); flex:0 0 auto; }
+.it-cell .it-nm { color: var(--gold-light); font-weight:600; line-height:1.15; }
+.it-cell .it-id { color:#7d7257; font-size:.7rem; }
+.cell-city .cdot2 { display:inline-block; width:9px; height:9px; border-radius:50%;
+  margin-right:6px; vertical-align:middle; box-shadow:0 0 0 1px rgba(0,0,0,.4); }
+.cell-city .strat { color:#b3a888; }
+.recipe-cell { color:#bcb293; font-size:.82rem; }
+/* barre de marge coloree par palier */
+.mbar { position:relative; height:18px; min-width:90px; border-radius:5px;
+  background: rgba(255,255,255,.05); overflow:hidden; }
+.mbar .fill { position:absolute; left:0; top:0; bottom:0; border-radius:5px; }
+.mbar .fill.m-hi  { background: linear-gradient(90deg,#3f8f52,#5fd07a); }
+.mbar .fill.m-mid { background: linear-gradient(90deg,#9c7d1e,#e0b13a); }
+.mbar .fill.m-lo  { background: rgba(160,150,120,.45); }
+.mbar .mtxt { position:absolute; right:6px; top:0; line-height:18px; font-size:.76rem;
+  color:#1a1409; font-weight:700; font-variant-numeric:tabular-nums; }
 </style>
 """
 
@@ -685,8 +729,43 @@ def render_safe_routes(opps, p, meta):
 # ONGLET CRAFT
 # --------------------------------------------------------------------------- #
 
+def fmt_int(n):
+    """Entier avec separateur de milliers (espace fine FR)."""
+    try:
+        return f"{int(round(n)):,}".replace(",", " ")
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _fresh_dot(age_h):
+    """Voyant de fraicheur : vert <6h, orange 6-12h, rouge >12h (ou inconnu)."""
+    if age_h is None:
+        cls, lbl = "fr-red", "inconnu"
+    elif age_h < 6:
+        cls, lbl = "fr-green", f"{age_h:.1f} h"
+    elif age_h <= 12:
+        cls, lbl = "fr-amber", f"{age_h:.1f} h"
+    else:
+        cls, lbl = "fr-red", f"{age_h:.1f} h"
+    return f'<span class="frdot {cls}" title="Age max des prix utilises : {lbl}"></span>'
+
+
+def _city_cell(city, strat):
+    c = CITY_HEX.get(city, "#caa42b")
+    return (f'<span class="cell-city"><span class="cdot2" style="background:{c}"></span>'
+            f'{city} <span class="strat">· {strat}</span></span>')
+
+
+def _marge_bar(marge, mmax):
+    pct = (max(0.0, min(marge / mmax, 1.0)) * 100) if mmax else 0
+    cls = "m-hi" if marge > 50 else ("m-mid" if marge >= 15 else "m-lo")
+    return (f'<div class="mbar"><div class="fill {cls}" style="width:{pct:.0f}%"></div>'
+            f'<span class="mtxt">{marge:.1f}%</span></div>')
+
+
 def render_craft(p, meta):
     cities = p["cities"]
+    names = load_item_names()
 
     # Recettes reelles depuis le dump (ressources + quantites) pour les items choisis.
     recipes, unknown = {}, []
@@ -737,7 +816,7 @@ def render_craft(p, meta):
     st.caption(
         f"Acheter ressources → crafter → revendre. Return rate {p['return_rate']*100:.1f}% "
         f"({focus_txt}) | Taxe vente {p['sales_tax']*100:.1f}% | Fraicheur ≤ {p['max_age']:.0f}h | "
-        f"Marge ≥ {p['min_margin']:.0f}%. Recettes et focus issus de ao-bin-dumps."
+        f"Marge ≥ {p['min_margin']:.0f}%. Noms, recettes et focus issus de ao-bin-dumps."
     )
 
     if not opps:
@@ -745,51 +824,76 @@ def render_craft(p, meta):
                 "baisse la marge minimale ou change la liste d'items.")
         return
 
-    df = pd.DataFrame(opps)
-    df["icon"] = df["item"].map(ai.icon_url)
-    df["focus"] = df["item"].map(lambda i: ai.get_focus(i, meta))
-    df["recette"] = df["item"].map(
-        lambda i: ", ".join(f"{q}x {r}" for r, q in ai.get_recipe(i, meta).items()))
-    df["buy_city"] = df["buy_city"].map(city_badge)
-    df["sell_city"] = df["sell_city"].map(city_badge)
-    df["buy_strategy"] = df["buy_strategy"].map(strat_badge)
-    df["strategy"] = df["strategy"].map(strat_badge)
-    df = df.rename(columns={
-        "icon": "Icone", "item": "Item crafte", "recette": "Recette", "focus": "Focus",
-        "buy_city": "Achat res @", "buy_strategy": "Achat", "total_cost": "Cout total",
-        "sell_city": "Vente @", "sell_price": "Prix vente", "strategy": "Vente",
-        "profit": "Profit/u", "margin_pct": "Marge %",
-    })
-    df = df[[
-        "Icone", "Item crafte", "Recette", "Focus", "Achat res @", "Cout total", "Achat",
-        "Vente @", "Prix vente", "Vente", "Profit/u", "Marge %",
-    ]].sort_values("Profit/u", ascending=False)
+    # Enrichissement par opportunite (nom FR, focus, profit/focus, age max, recette).
+    for o in opps:
+        o["_name"] = ai.get_name(o["item"], names)
+        o["_focus"] = ai.get_focus(o["item"], meta) or 0
+        o["_pf"] = (o["profit"] / o["_focus"]) if o["_focus"] else None
+        ages = [a for a in (o.get("buy_age_h"), o.get("sell_age_h")) if a is not None]
+        o["_age"] = max(ages) if ages else None
+        o["_recipe"] = ", ".join(f"{q}× {r}" for r, q in ai.get_recipe(o["item"], meta).items())
 
-    craft_marge_max = max(float(df["Marge %"].max()), 1.0)
-    st.subheader("Crafts rentables (cliquer sur un en-tete pour trier)")
-    st.dataframe(
-        df, use_container_width=True, hide_index=True,
-        column_config={
-            "Icone": icon_col_config(),
-            "Focus": st.column_config.NumberColumn(format="%d", help="Focus de craft de base "
-                     "(dump). Consomme uniquement si tu craftes avec focus."),
-            "Cout total": st.column_config.NumberColumn(format="%d",
-                     help="Matieres (apres return rate) + frais craft + cout focus."),
-            "Prix vente": st.column_config.NumberColumn(format="%d"),
-            "Profit/u": st.column_config.NumberColumn(format="%d"),
-            "Marge %": st.column_config.ProgressColumn(
-                "Marge %", format="%.1f %%", min_value=0, max_value=craft_marge_max),
-        },
-    )
+    section_title("Crafts rentables", "🔨")
+    sort_opt = st.selectbox(
+        "Trier par", ["Profit/u", "Profit/focus", "Marge %", "Cout total"], index=0,
+        help="Le focus est souvent la ressource limitante : 'Profit/focus' priorise le "
+             "rendement par point de focus.")
+    keymap = {
+        "Profit/u": lambda o: o["profit"],
+        "Profit/focus": lambda o: (o["_pf"] if o["_pf"] is not None else -1),
+        "Marge %": lambda o: o["margin_pct"],
+        "Cout total": lambda o: o["total_cost"],
+    }
+    opps = sorted(opps, key=keymap[sort_opt], reverse=(sort_opt != "Cout total"))
+
+    # Tableau HTML (controle total du theme : voyant, icone+nom, pastilles, barres).
+    mmax = max((o["margin_pct"] for o in opps), default=1.0)
+    headers = [("", False), ("Item crafté", False), ("Recette", False), ("Focus", True),
+               ("Achat", False), ("Coût total", True), ("Vente", False), ("Profit/u", True),
+               ("Profit/focus", True), ("Marge", False)]
+    th = "".join(f'<th class="num">{h}</th>' if num else f"<th>{h}</th>" for h, num in headers)
+    body = ""
+    for o in opps:
+        icon = ai.icon_url(o["item"]) + "?quality=1"
+        pf = fmt_int(o["_pf"]) if o["_pf"] is not None else "—"
+        body += (
+            "<tr>"
+            f'<td>{_fresh_dot(o["_age"])}</td>'
+            f'<td><div class="it-cell"><img src="{icon}"/><div>'
+            f'<div class="it-nm">{o["_name"]}</div>'
+            f'<div class="it-id">{o["item"]}</div></div></div></td>'
+            f'<td class="recipe-cell">{o["_recipe"]}</td>'
+            f'<td class="num">{fmt_int(o["_focus"]) if o["_focus"] else "—"}</td>'
+            f'<td>{_city_cell(o["buy_city"], o["buy_strategy"])}</td>'
+            f'<td class="num">{fmt_int(o["total_cost"])} 🪙</td>'
+            f'<td>{_city_cell(o["sell_city"], o["strategy"])}</td>'
+            f'<td class="num">{fmt_int(o["profit"])}</td>'
+            f'<td class="num">{pf}</td>'
+            f'<td>{_marge_bar(o["margin_pct"], mmax)}</td>'
+            "</tr>")
+    st.markdown(
+        f'<div class="craft-wrap"><table class="craft-tbl"><thead><tr>{th}</tr></thead>'
+        f"<tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
+
+    # Export CSV (DataFrame propre, sans HTML).
+    csv_df = pd.DataFrame([{
+        "Item": o["_name"], "ID": o["item"], "Recette": o["_recipe"], "Focus": o["_focus"],
+        "Achat @": o["buy_city"], "Achat": o["buy_strategy"], "Cout total": o["total_cost"],
+        "Vente @": o["sell_city"], "Vente": o["strategy"], "Prix vente": o["sell_price"],
+        "Profit/u": o["profit"],
+        "Profit/focus": round(o["_pf"]) if o["_pf"] is not None else "",
+        "Marge %": o["margin_pct"],
+        "Age max (h)": round(o["_age"], 1) if o["_age"] is not None else "",
+    } for o in opps])
     st.download_button(
-        "⬇️ Exporter en CSV", data=df.drop(columns="Icone").to_csv(index=False).encode("utf-8"),
-        file_name="albion_craft.csv", mime="text/csv",
-    )
+        "⬇️ Exporter en CSV", data=csv_df.to_csv(index=False).encode("utf-8"),
+        file_name="albion_craft.csv", mime="text/csv")
+
     st.caption(
-        "Focus = points de focus du craft (consomme si tu actives le focus, qui ameliore le "
-        "return rate). Cout total = matieres apres return rate + frais. "
-        "Achat res = strategie d'achat des ressources ('instant'/'ordre'). "
-        "Vente @ = ou revendre l'item crafte."
+        "🟢 < 6 h · 🟠 6–12 h · 🔴 > 12 h (age max des prix — survole le voyant). "
+        "Une grosse marge avec un voyant rouge est typiquement un outlier a verifier. "
+        "Profit/focus = profit ÷ focus (rendement par point de focus, la ressource limitante). "
+        "Coût total = matieres (apres return rate) + frais. Survole une ligne pour la suivre."
     )
 
 

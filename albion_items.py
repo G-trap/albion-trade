@@ -166,6 +166,67 @@ def get_recipe(item_id, meta):
     return {}
 
 
+# --------------------------------------------------------------------------- #
+# NOMS LOCALISES (formatted/items.json)
+# --------------------------------------------------------------------------- #
+
+NAMES_DUMP_URL = ("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/"
+                  "master/formatted/items.json")
+NAMES_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "item_names.json")
+
+
+def _parse_names(data, lang="FR-FR", fallback="EN-US"):
+    """{ uniquename -> nom localise } (FR-FR, sinon EN-US)."""
+    names = {}
+    for o in data:
+        if not isinstance(o, dict):
+            continue
+        u = o.get("UniqueName")
+        ln = o.get("LocalizedNames") or {}
+        if u and ln:
+            name = ln.get(lang) or ln.get(fallback)
+            if name:
+                names[u] = name
+    return names
+
+
+def load_names(cache_path=NAMES_CACHE_FILE, ttl_hours=CACHE_TTL_HOURS, force=False):
+    """
+    { uniquename -> nom FR } depuis formatted/items.json (gros fichier ~24 Mo).
+    Sert depuis le cache disque s'il est frais, sinon telecharge et met en cache.
+    """
+    if not force and _cache_is_fresh(cache_path, ttl_hours):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and data.get("names"):
+                return data["names"]
+        except (OSError, ValueError):
+            pass
+
+    raw = aa._http_get_json(NAMES_DUMP_URL)
+    names = _parse_names(raw)
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump({"fetched_at": datetime.now(timezone.utc).isoformat(),
+                       "count": len(names), "names": names}, f, ensure_ascii=False)
+    except OSError:
+        pass
+    return names
+
+
+def get_name(item_id, names, default=None):
+    """Nom FR de l'item ; gere les ids enchantes ; fallback sur l'id si inconnu."""
+    if not item_id:
+        return default
+    n = names.get(item_id)
+    if n:
+        return n
+    base = item_id.split("@", 1)[0]
+    return names.get(base, default if default is not None else item_id)
+
+
 if __name__ == "__main__":
     m = load_meta(force=True)
     print(f"{len(m)} items charges. Exemples :")
