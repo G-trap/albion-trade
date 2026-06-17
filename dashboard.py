@@ -27,6 +27,19 @@ import albion_items as ai
 # Villes royales reliees entre elles sans traverser de zone rouge ou noire.
 SAFE_CITIES = ["Bridgewatch", "Lymhurst", "Martlock", "Thetford", "Fort Sterling"]
 
+# Pastille de couleur par ville (repere visuel facon carte d'Albion).
+CITY_COLORS = {
+    "Thetford": "🟣", "Fort Sterling": "⚪", "Lymhurst": "🟢", "Bridgewatch": "🟡",
+    "Martlock": "🔵", "Caerleon": "🔴", "Black Market": "⚫", "Brecilien": "🟤",
+}
+
+
+def city_badge(city):
+    """Prefixe une ville par sa pastille de couleur (None -> chaine vide)."""
+    if not city:
+        return city
+    return f"{CITY_COLORS.get(city, '•')} {city}"
+
 # Anneau des 5 villes royales autour de Caerleon -> estimation du temps de trajet.
 TRAVEL_RING = ["Fort Sterling", "Martlock", "Lymhurst", "Bridgewatch", "Thetford"]
 TRAVEL_MINUTES_BY_DISTANCE = {1: 11, 2: 19}  # estimation indicative
@@ -156,6 +169,26 @@ h1, h2, h3, h4 { font-family: 'Cinzel', serif !important; color: var(--gold-ligh
 }
 [data-testid="stExpander"] summary { color: var(--gold-light); font-family:'Cinzel',serif; }
 hr { border-color: rgba(201,162,39,.25) !important; }
+
+/* Alertes (success/info/warning) : liseret dore */
+[data-testid="stAlert"], [data-testid="stAlertContainer"] {
+  border:1px solid rgba(201,162,39,.40) !important; border-radius:8px;
+}
+
+/* Sliders et controles : accent dore */
+[data-testid="stSlider"] [role="slider"] { box-shadow: 0 0 0 3px rgba(201,162,39,.25); }
+
+/* Scrollbar doree */
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:#15110c; }
+::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#7a611a,#caa42b);
+  border-radius:6px; border:2px solid #15110c; }
+
+/* Pied de page ornemental */
+.albion-footer { text-align:center; color:#8c7f63; font-family:'Cinzel',serif;
+  margin-top:22px; padding-top:12px; font-size:.85rem;
+  border-top:1px solid rgba(201,162,39,.25); }
+.albion-footer .gem { color: var(--gold); }
 </style>
 """
 
@@ -225,6 +258,8 @@ def render_transport(p, meta):
     df = pd.DataFrame(opps)
     df["age_max_h"] = df[["buy_age_h", "sell_age_h"]].max(axis=1)
     df["icon"] = df["item"].map(ai.icon_url)
+    df["buy_city"] = df["buy_city"].map(city_badge)
+    df["sell_city"] = df["sell_city"].map(city_badge)
     df = df.rename(columns={
         "icon": "Icone", "item": "Item", "buy_city": "Achat @", "buy_price": "Prix achat",
         "buy_strategy": "Achat", "sell_city": "Vente @", "sell_price": "Prix vente",
@@ -236,6 +271,7 @@ def render_transport(p, meta):
         "Vente", "Profit/u", "Marge %", "Age max (h)",
     ]].sort_values("Profit/u", ascending=False)
 
+    marge_max = max(float(df["Marge %"].max()), 1.0)
     st.subheader("Opportunites (cliquer sur un en-tete pour trier)")
     st.dataframe(
         df, use_container_width=True, hide_index=True,
@@ -244,7 +280,8 @@ def render_transport(p, meta):
             "Prix achat": st.column_config.NumberColumn(format="%d"),
             "Prix vente": st.column_config.NumberColumn(format="%d"),
             "Profit/u": st.column_config.NumberColumn(format="%d"),
-            "Marge %": st.column_config.NumberColumn(format="%.1f %%"),
+            "Marge %": st.column_config.ProgressColumn(
+                "Marge %", format="%.1f %%", min_value=0, max_value=marge_max),
             "Age max (h)": st.column_config.NumberColumn(format="%.1f"),
         },
     )
@@ -297,7 +334,7 @@ def render_safe_routes(opps, p, meta):
         per_min = round(top["_trip_profit"] / minutes) if minutes else None
         recap.append({
             "Icone": ai.icon_url(top["item"]),
-            "Itineraire": f"{buy} → {sell}", "Temps (min)": minutes,
+            "Itineraire": f"{city_badge(buy)} → {city_badge(sell)}", "Temps (min)": minutes,
             "Items rentables": len(lst), "Meilleur item": top["item"],
             "Unites/voyage": top["_units"], "Investissement/voyage": top["_trip_invest"],
             "Profit/voyage": top["_trip_profit"], "Profit/voyage par min": per_min,
@@ -316,6 +353,7 @@ def render_safe_routes(opps, p, meta):
     )
 
     recap_df = pd.DataFrame(recap).drop(columns="_key")
+    recap_marge_max = max(float(recap_df["Meilleure marge %"].max()), 1.0)
     st.dataframe(
         recap_df, use_container_width=True, hide_index=True,
         column_config={
@@ -325,7 +363,8 @@ def render_safe_routes(opps, p, meta):
             "Investissement/voyage": st.column_config.NumberColumn(format="%d"),
             "Profit/voyage": st.column_config.NumberColumn(format="%d"),
             "Profit/voyage par min": st.column_config.NumberColumn(format="%d /min"),
-            "Meilleure marge %": st.column_config.NumberColumn(format="%.1f %%"),
+            "Meilleure marge %": st.column_config.ProgressColumn(
+                "Meilleure marge %", format="%.1f %%", min_value=0, max_value=recap_marge_max),
         },
     )
 
@@ -435,6 +474,8 @@ def render_craft(p, meta):
     df["focus"] = df["item"].map(lambda i: ai.get_focus(i, meta))
     df["recette"] = df["item"].map(
         lambda i: ", ".join(f"{q}x {r}" for r, q in ai.get_recipe(i, meta).items()))
+    df["buy_city"] = df["buy_city"].map(city_badge)
+    df["sell_city"] = df["sell_city"].map(city_badge)
     df = df.rename(columns={
         "icon": "Icone", "item": "Item crafte", "recette": "Recette", "focus": "Focus",
         "buy_city": "Achat res @", "buy_strategy": "Achat", "total_cost": "Cout total",
@@ -446,6 +487,7 @@ def render_craft(p, meta):
         "Vente @", "Prix vente", "Vente", "Profit/u", "Marge %",
     ]].sort_values("Profit/u", ascending=False)
 
+    craft_marge_max = max(float(df["Marge %"].max()), 1.0)
     st.subheader("Crafts rentables (cliquer sur un en-tete pour trier)")
     st.dataframe(
         df, use_container_width=True, hide_index=True,
@@ -457,7 +499,8 @@ def render_craft(p, meta):
                      help="Matieres (apres return rate) + frais craft + cout focus."),
             "Prix vente": st.column_config.NumberColumn(format="%d"),
             "Profit/u": st.column_config.NumberColumn(format="%d"),
-            "Marge %": st.column_config.NumberColumn(format="%.1f %%"),
+            "Marge %": st.column_config.ProgressColumn(
+                "Marge %", format="%.1f %%", min_value=0, max_value=craft_marge_max),
         },
     )
     st.download_button(
@@ -566,3 +609,9 @@ with tab_transport:
     render_transport(params, meta)
 with tab_craft:
     render_craft(params, meta)
+
+st.markdown(
+    '<div class="albion-footer"><span class="gem">⚜️</span> Albion Trade · '
+    'donnees Albion Online Data Project · serveur EUROPE <span class="gem">⚜️</span></div>',
+    unsafe_allow_html=True,
+)
