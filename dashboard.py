@@ -667,7 +667,7 @@ def render_safe_routes(opps, p, meta):
         recap.append({
             "Icone": ai.icon_url(top["item"]),
             "Itineraire": f"{city_badge(buy)} → {city_badge(sell)}", "Temps (min)": minutes,
-            "Items rentables": len(lst), "Meilleur item": top["item"],
+            "Items rentables": len(lst), "Meilleur item": top["_name"],
             "Unites/voyage": top["_units"], "Investissement/voyage": top["_trip_invest"],
             "Profit/voyage": top["_trip_profit"], "Profit/voyage par min": per_min,
             "Meilleure marge %": max(x["margin_pct"] for x in lst), "_key": (buy, sell),
@@ -708,10 +708,10 @@ def render_safe_routes(opps, p, meta):
             d["icon"] = d["item"].map(ai.icon_url)
             d["buy_strategy"] = d["buy_strategy"].map(strat_badge)
             d["strategy"] = d["strategy"].map(strat_badge)
-            d = d[["icon", "item", "buy_price", "buy_strategy", "sell_price", "strategy",
+            d = d[["icon", "_name", "buy_price", "buy_strategy", "sell_price", "strategy",
                    "profit", "margin_pct", "_weight", "_units", "_trip_invest", "_trip_profit"]
                   ].rename(columns={
-                      "icon": "Icone", "item": "Item", "buy_price": "Prix achat",
+                      "icon": "Icone", "_name": "Item", "buy_price": "Prix achat",
                       "buy_strategy": "Achat", "sell_price": "Prix vente", "strategy": "Vente",
                       "profit": "Profit/u", "margin_pct": "Marge %", "_weight": "Poids (kg)",
                       "_units": "Unites/voyage", "_trip_invest": "Investissement/voyage",
