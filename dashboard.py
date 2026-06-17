@@ -40,6 +40,14 @@ def city_badge(city):
         return city
     return f"{CITY_COLORS.get(city, '•')} {city}"
 
+
+# Strategie d'achat/vente avec icone (eclair = instantane, parchemin = ordre poste).
+STRAT_BADGES = {"instant": "⚡ instant", "ordre": "📜 ordre", "mixte": "🔀 mixte"}
+
+
+def strat_badge(s):
+    return STRAT_BADGES.get(s, s)
+
 # Anneau des 5 villes royales autour de Caerleon -> estimation du temps de trajet.
 TRAVEL_RING = ["Fort Sterling", "Martlock", "Lymhurst", "Bridgewatch", "Thetford"]
 TRAVEL_MINUTES_BY_DISTANCE = {1: 11, 2: 19}  # estimation indicative
@@ -96,6 +104,11 @@ def icon_col_config(label="Icone"):
     return st.column_config.ImageColumn(label, width="small")
 
 
+def ornament():
+    """Separateur ornemental dore."""
+    st.markdown('<div class="albion-orn">✦ &nbsp; ✦ &nbsp; ✦</div>', unsafe_allow_html=True)
+
+
 # --------------------------------------------------------------------------- #
 # THEME ALBION (or sur fond sombre)
 # --------------------------------------------------------------------------- #
@@ -121,16 +134,28 @@ h1, h2, h3, h4 { font-family: 'Cinzel', serif !important; color: var(--gold-ligh
 
 /* Banniere d'en-tete */
 .albion-header {
-  border: 1px solid rgba(201,162,39,.45); border-radius: 12px; padding: 18px 26px;
-  margin: 4px 0 14px 0;
-  background: linear-gradient(135deg, rgba(36,28,20,.92), rgba(21,17,12,.92));
-  box-shadow: 0 6px 22px rgba(0,0,0,.55), inset 0 0 34px rgba(201,162,39,.06);
+  position: relative; border: 1px solid rgba(201,162,39,.45); border-radius: 12px;
+  padding: 20px 28px; margin: 4px 0 16px 0;
+  background:
+    radial-gradient(600px 120px at 50% 0%, rgba(201,162,39,.10), transparent 70%),
+    linear-gradient(135deg, rgba(40,31,21,.95), rgba(20,16,11,.95));
+  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 0 0 1px rgba(201,162,39,.18),
+              inset 0 0 40px rgba(201,162,39,.07);
 }
-.albion-header .title { font-family:'Cinzel',serif; font-size:2.1rem; font-weight:700;
+.albion-header::before, .albion-header::after {
+  content: "❖"; position: absolute; top: 10px; color: rgba(201,162,39,.55); font-size: .9rem;
+}
+.albion-header::before { left: 12px; }
+.albion-header::after { right: 12px; }
+.albion-header .title { font-family:'Cinzel',serif; font-size:2.2rem; font-weight:700;
   color: var(--gold-light); margin:0; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
 .albion-header .subtitle { color:#bcae90; font-size:1rem; margin-top:6px; }
 .albion-header .rule { height:2px; margin-top:12px; border-radius:2px;
   background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+/* Separateur ornemental */
+.albion-orn { text-align:center; color: rgba(201,162,39,.55); letter-spacing:6px;
+  margin:16px 0 6px 0; font-size:.85rem; }
 
 /* Metrics en cartes ornees */
 [data-testid="stMetric"] {
@@ -237,10 +262,10 @@ def render_transport(p, meta):
     opps = [o for o in opps if o["margin_pct"] >= p["min_margin"]]
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Items scannes", len(items))
-    c2.metric("Lignes de prix", len(rows))
-    c3.metric("Opportunites", len(opps))
-    c4.metric("Meilleure marge", f"{max((o['margin_pct'] for o in opps), default=0):.1f} %")
+    c1.metric("📦 Items scannes", len(items))
+    c2.metric("📊 Lignes de prix", len(rows))
+    c3.metric("⚖️ Opportunites", len(opps))
+    c4.metric("🏆 Meilleure marge", f"{max((o['margin_pct'] for o in opps), default=0):.1f} %")
 
     guard = (f"anti-outlier x{p['outlier_factor']:.1f} ({len(reference)} refs)"
              if reference else "anti-outlier off")
@@ -260,6 +285,8 @@ def render_transport(p, meta):
     df["icon"] = df["item"].map(ai.icon_url)
     df["buy_city"] = df["buy_city"].map(city_badge)
     df["sell_city"] = df["sell_city"].map(city_badge)
+    df["buy_strategy"] = df["buy_strategy"].map(strat_badge)
+    df["strategy"] = df["strategy"].map(strat_badge)
     df = df.rename(columns={
         "icon": "Icone", "item": "Item", "buy_city": "Achat @", "buy_price": "Prix achat",
         "buy_strategy": "Achat", "sell_city": "Vente @", "sell_price": "Prix vente",
@@ -299,7 +326,7 @@ def render_transport(p, meta):
 
 
 def render_safe_routes(opps, p, meta):
-    st.divider()
+    ornament()
     st.subheader("🛡️ Itineraires surs (bleu + jaune, sans full-loot)")
     st.caption(
         "Trajets entre villes royales relies uniquement par des zones bleues et jaunes : "
@@ -374,6 +401,8 @@ def render_safe_routes(opps, p, meta):
         with st.expander(f"{r['Itineraire']}{t_lbl} — {r['Items rentables']} item(s) a transporter"):
             d = pd.DataFrame(routes[(buy, sell)])
             d["icon"] = d["item"].map(ai.icon_url)
+            d["buy_strategy"] = d["buy_strategy"].map(strat_badge)
+            d["strategy"] = d["strategy"].map(strat_badge)
             d = d[["icon", "item", "buy_price", "buy_strategy", "sell_price", "strategy",
                    "profit", "margin_pct", "_weight", "_units", "_trip_invest", "_trip_profit"]
                   ].rename(columns={
@@ -452,10 +481,10 @@ def render_craft(p, meta):
     opps = [o for o in opps if o["margin_pct"] >= p["min_margin"]]
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Recettes", len(recipes))
-    c2.metric("Crafts rentables", len(opps))
-    c3.metric("Return rate", f"{p['return_rate']*100:.1f} %")
-    c4.metric("Meilleure marge", f"{max((o['margin_pct'] for o in opps), default=0):.1f} %")
+    c1.metric("📜 Recettes", len(recipes))
+    c2.metric("🔨 Crafts rentables", len(opps))
+    c3.metric("♻️ Return rate", f"{p['return_rate']*100:.1f} %")
+    c4.metric("🏆 Meilleure marge", f"{max((o['margin_pct'] for o in opps), default=0):.1f} %")
 
     focus_txt = "avec focus" if p["use_focus"] else "sans focus"
     st.caption(
@@ -476,6 +505,8 @@ def render_craft(p, meta):
         lambda i: ", ".join(f"{q}x {r}" for r, q in ai.get_recipe(i, meta).items()))
     df["buy_city"] = df["buy_city"].map(city_badge)
     df["sell_city"] = df["sell_city"].map(city_badge)
+    df["buy_strategy"] = df["buy_strategy"].map(strat_badge)
+    df["strategy"] = df["strategy"].map(strat_badge)
     df = df.rename(columns={
         "icon": "Icone", "item": "Item crafte", "recette": "Recette", "focus": "Focus",
         "buy_city": "Achat res @", "buy_strategy": "Achat", "total_cost": "Cout total",
